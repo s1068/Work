@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Fetch channels JSON and convert it to M3U playlist.
+Fetch channels JSON and convert it to proper Kodi M3U format.
 """
 
 import json
 import urllib.request
-from pathlib import Path
 
 JSON_URL = "https://raw.githubusercontent.com/mdjamsad9/dudetvapi/main/public_decrypted/channels/50008.json"
 OUTPUT_FILE = "playlist.m3u"
@@ -21,19 +20,25 @@ def main():
         title = ch.get("title", "Unknown").strip()
         logo = ch.get("logo", "").strip()
         link = ch.get("link", "").strip()
-        api = ch.get("api", "").strip()
+        key = ch.get("api", "").strip()   # This is the DRM key (kid:key)
 
         if not link:
             continue
 
+        # EXTINF line
         extinf = f'#EXTINF:-1 tvg-name="{title}"'
         if logo:
             extinf += f' tvg-logo="{logo}"'
-        if api:
-            extinf += f' catchup-source="{api}"'
         extinf += f',{title}'
-
         lines.append(extinf)
+
+        # Proper Kodi properties for Widevine / ClearKey streams
+        if key:
+            lines.append("#KODIPROP:inputstream=inputstream.adaptive")
+            lines.append("#KODIPROP:inputstream.adaptive.manifest_type=mpd")
+            lines.append("#KODIPROP:inputstream.adaptive.license_type=com.widevine.alpha")
+            lines.append(f"#KODIPROP:inputstream.adaptive.license_key={key}")
+
         lines.append(link)
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
