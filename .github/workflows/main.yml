@@ -1,0 +1,39 @@
+name: Converter
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch:        # manual run
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Run converter
+        run: python test.py
+
+      - name: Push to m3u branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin m3u || true
+          git checkout -B m3u origin/m3u 2>/dev/null || git checkout --orphan m3u
+
+          # Keep only the playlist
+          find . -mindepth 1 -maxdepth 1 ! -name 'playlist.m3u' ! -name '.git' -exec rm -rf {} +
+
+          git add playlist.m3u
+          git commit -m "Update playlist.m3u $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "No changes"
+          git push origin m3u --force
